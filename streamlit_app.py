@@ -51,7 +51,7 @@ else:
     df_master['TIPO DE ENTRADA'] = 'Pendiente (Sin revisión)'
 
 # --- Escudo protector: Crear columnas si no existen ---
-# NOTA: Cambia 'QUIEN CARGA' por tu nombre real de columna (ej. 'LEGAJO' o 'AREA QUE REPORTA') si es necesario
+# NOTA: Cambia 'QUIEN CARGA' por tu nombre real de columna (ej. 'LEGAJO') si es necesario
 columnas_seguras = ['AREA RESPONSABLE', 'PERSONA RESPONSABLE', 'PLAN DE ACCION', 'FECHA DE REVISION', 'AREA', 'QUIEN CARGA', 'DESCRIPCION DE FALLA']
 for col in columnas_seguras:
     if col not in df_master.columns:
@@ -117,11 +117,11 @@ df_activos = df_master[~df_master['TIPO DE ENTRADA'].isin(['Pendiente (Sin revis
 st.info("📋 **LISTADO DE PROBLEMAS EN CURSO**")
 
 if not df_activos.empty:
+    # Se eliminó la persona responsable de la lista visual
     columnas_activos = [
         'N° DE TICKET', 
         'FECHA INGRESO', 
         'AREA RESPONSABLE', 
-        'PERSONA RESPONSABLE', 
         'DESCRIPCION DE FALLA', 
         'PLAN DE ACCION', 
         'FECHA DE REVISION', 
@@ -136,7 +136,6 @@ if not df_activos.empty:
             "N° DE TICKET": st.column_config.TextColumn("Ticket", width="small"),
             "FECHA INGRESO": st.column_config.DatetimeColumn("Marca temporal", format="DD/MM/YYYY"),
             "AREA RESPONSABLE": st.column_config.TextColumn("Área Responsable", width="medium"),
-            "PERSONA RESPONSABLE": st.column_config.TextColumn("Responsable", width="medium"),
             "DESCRIPCION DE FALLA": st.column_config.TextColumn("Problema / Falla", width="large"),
             "PLAN DE ACCION": st.column_config.TextColumn("Plan de Acción", width="large"),
             "FECHA DE REVISION": st.column_config.TextColumn("Fecha de Revisión", width="medium"),
