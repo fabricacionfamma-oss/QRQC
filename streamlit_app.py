@@ -9,7 +9,8 @@ st.set_page_config(page_title="Tablero QRQC", layout="wide")
 # 1. CONFIGURACIÓN DE ENLACES DEFINITIVOS
 # ==========================================
 url_ingresos = "https://docs.google.com/spreadsheets/d/1xw4aqqpf6pWDa9LQSmS3ztLiF82n-ZQ0NqY3QRVTTFg/edit"
-url_actualizaciones = "https://docs.google.com/spreadsheets/d/1kYDRlp_q0DDg88vks09s2eThas_WVFrUaPNujI7AKIw/edit"
+# ¡NUEVA URL DE ACTUALIZACIONES CONFIGURADA!
+url_actualizaciones = "https://docs.google.com/spreadsheets/d/13HGJpk8SJo1nN2asMVMuS_EXhqYq4vtcMslvUEMdQw0/edit"
 
 # Link base de tu Formulario de Actualización (con el Entry ID precargado)
 url_base_form_actualizacion = "https://docs.google.com/forms/d/e/1FAIpQLSfppxJI7lPOKbFQZwsDzTBYdv4hWq3QN9ImKCkAvmVCLV0wDw/viewform?entry.1541179458="
@@ -147,14 +148,3 @@ with st.expander("✅ VER HISTORIAL DE PROBLEMAS CERRADOS"):
         st.dataframe(df_cerrados[columnas_cerrados], use_container_width=True, hide_index=True)
     else:
         st.write("Aún no hay problemas cerrados.")
-
-
-st.divider()
-with st.expander("🔍 MODO DETECTIVE (Solo para el Administrador)"):
-    st.write("¿Qué está leyendo el sistema en la planilla de ACTUALIZACIONES?")
-    if df_actualizaciones.empty:
-        st.warning("La planilla de actualizaciones está VACÍA. No ha entrado ninguna respuesta del formulario 2.")
-    else:
-        st.write("Nombres exactos de las columnas detectadas:", df_actualizaciones.columns.tolist())
-        st.dataframe(df_actualizaciones, use_container_width=True)
-        
