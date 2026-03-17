@@ -20,11 +20,9 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 df_ingresos = conn.read(spreadsheet=url_ingresos, ttl=300)
 df_actualizaciones = conn.read(spreadsheet=url_actualizaciones, ttl=300)
 
-# Limpieza de nombres de columnas (quita espacios invisibles)
 df_ingresos.columns = df_ingresos.columns.str.strip()
 df_actualizaciones.columns = df_actualizaciones.columns.str.strip()
 
-# Asegurarse de que exista la columna principal para no dar error
 if 'N° DE TICKET' in df_ingresos.columns:
     df_ingresos = df_ingresos.dropna(subset=['N° DE TICKET'])
     df_ingresos['N° DE TICKET'] = df_ingresos['N° DE TICKET'].astype(str).str.replace('.0', '', regex=False).str.strip()
@@ -39,42 +37,32 @@ if not df_actualizaciones.empty and 'N° DE TICKET' in df_actualizaciones.column
     df_actualizaciones = df_actualizaciones.dropna(subset=['N° DE TICKET'])
     df_actualizaciones['N° DE TICKET'] = df_actualizaciones['N° DE TICKET'].astype(str).str.replace('.0', '', regex=False).str.strip()
     df_actualizaciones['Marca temporal'] = pd.to_datetime(df_actualizaciones['Marca temporal'], errors='coerce')
-    
-    # Quedarse solo con la última actualización de cada ticket
     df_ultimas_act = df_actualizaciones.sort_values('Marca temporal').drop_duplicates(subset='N° DE TICKET', keep='last')
-    
-    # Cruzar datos
     df_master = pd.merge(df_ingresos, df_ultimas_act, on='N° DE TICKET', how='left')
     df_master['TIPO DE ENTRADA'] = df_master['TIPO DE ENTRADA'].fillna('Pendiente (Sin revisión)')
 else:
     df_master = df_ingresos.copy()
     df_master['TIPO DE ENTRADA'] = 'Pendiente (Sin revisión)'
 
-# --- Escudo protector: Crear columnas si no existen ---
-# NOTA: Cambia 'QUIEN CARGA' por tu nombre real de columna (ej. 'LEGAJO') si es necesario
-columnas_seguras = ['AREA RESPONSABLE', 'PERSONA RESPONSABLE', 'PLAN DE ACCION', 'FECHA DE REVISION', 'AREA', 'QUIEN CARGA', 'DESCRIPCION DE FALLA']
+# Escudo protector de columnas
+columnas_seguras = ['AREA RESPONSABLE', 'PLAN DE ACCION', 'FECHA DE REVISION', 'AREA', 'QUIEN CARGA', 'DESCRIPCION DE FALLA']
 for col in columnas_seguras:
     if col not in df_master.columns:
-        df_master[col] = '' # Las crea vacías para evitar KeyError
+        df_master[col] = ''
 
-# Unificar el nombre de la fecha
 if 'Marca temporal_x' in df_master.columns:
     df_master.rename(columns={'Marca temporal_x': 'FECHA INGRESO'}, inplace=True)
 elif 'Marca temporal' in df_master.columns:
     df_master.rename(columns={'Marca temporal': 'FECHA INGRESO'}, inplace=True)
-elif 'FECHA INGRESO' not in df_master.columns:
-    df_master['FECHA INGRESO'] = ''
 
-# Crear el link dinámico
 df_master['LINK_ACCION'] = url_base_form_actualizacion + df_master['N° DE TICKET']
 
 # ==========================================
-# 4. INTERFAZ VISUAL OPTIMIZADA
+# 4. INTERFAZ VISUAL
 # ==========================================
 
 st.title("🏭 Tablero QRQC")
 
-# --- BOTONES PRINCIPALES ---
 st.link_button("➕ INGRESE UN NUEVO TICKET", url_form_nuevo, use_container_width=True)
 
 st.divider()
@@ -91,8 +79,8 @@ df_pendientes = df_master[df_master['TIPO DE ENTRADA'] == 'Pendiente (Sin revisi
 st.error("⚠️ **PENDIENTES DE ACEPTACIÓN**")
 
 if not df_pendientes.empty:
-    # ⚠️ RECUERDA: Si tu columna no se llama 'QUIEN CARGA', cámbialo aquí abajo por su nombre real
-    columnas_pendientes = ['FECHA INGRESO', 'AREA', 'QUIEN CARGA', 'LINK_ACCION']
+    # Agregamos 'DESCRIPCION DE FALLA' a la lista
+    columnas_pendientes = ['FECHA INGRESO', 'AREA', 'DESCRIPCION DE FALLA', 'QUIEN CARGA', 'LINK_ACCION']
     
     st.dataframe(
         df_pendientes[columnas_pendientes], 
@@ -101,6 +89,7 @@ if not df_pendientes.empty:
         column_config={
             "FECHA INGRESO": st.column_config.DatetimeColumn("Fecha", format="DD/MM/YYYY"),
             "AREA": st.column_config.TextColumn("Área", width="small"),
+            "DESCRIPCION DE FALLA": st.column_config.TextColumn("Problema / Falla", width="large"),
             "QUIEN CARGA": st.column_config.TextColumn("Quien carga", width="medium"),
             "LINK_ACCION": st.column_config.LinkColumn("Acción", display_text="✏️ Asignar")
         }
@@ -117,7 +106,6 @@ df_activos = df_master[~df_master['TIPO DE ENTRADA'].isin(['Pendiente (Sin revis
 st.info("📋 **LISTADO DE PROBLEMAS EN CURSO**")
 
 if not df_activos.empty:
-    # Se eliminó la persona responsable de la lista visual
     columnas_activos = [
         'N° DE TICKET', 
         'FECHA INGRESO', 
