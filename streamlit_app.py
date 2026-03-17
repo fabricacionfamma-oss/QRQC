@@ -120,7 +120,6 @@ if not df_activos.empty:
     columnas_activos = [
         'N° DE TICKET', 
         'FECHA INGRESO', 
-        'TIPO DE ENTRADA', 
         'AREA RESPONSABLE', 
         'PERSONA RESPONSABLE', 
         'DESCRIPCION DE FALLA', 
@@ -136,7 +135,6 @@ if not df_activos.empty:
         column_config={
             "N° DE TICKET": st.column_config.TextColumn("Ticket", width="small"),
             "FECHA INGRESO": st.column_config.DatetimeColumn("Marca temporal", format="DD/MM/YYYY"),
-            "TIPO DE ENTRADA": st.column_config.TextColumn("Estado", width="medium"),
             "AREA RESPONSABLE": st.column_config.TextColumn("Área Responsable", width="medium"),
             "PERSONA RESPONSABLE": st.column_config.TextColumn("Responsable", width="medium"),
             "DESCRIPCION DE FALLA": st.column_config.TextColumn("Problema / Falla", width="large"),
