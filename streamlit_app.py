@@ -59,7 +59,7 @@ st.title("🏭 Tablero QRQC")
 # --- BOTONES PRINCIPALES REORGANIZADOS ---
 st.link_button("➕ INGRESE UN NUEVO TICKET", url_form_nuevo, use_container_width=True)
 
-st.divider() # La barra separadora que pediste
+st.divider()
 
 if st.button("🔄 Actualizar Datos Ahora", type="primary", use_container_width=True):
     st.cache_data.clear()
@@ -70,7 +70,6 @@ st.divider()
 # --- BLOQUE 1: PENDIENTES ---
 df_pendientes = df_master[df_master['TIPO DE ENTRADA'] == 'Pendiente (Sin revisión)'].copy()
 
-# Quitamos los '###' para que la fuente sea de tamaño normal pero destacada
 st.error("⚠️ **PENDIENTES DE ACEPTACIÓN**")
 
 if not df_pendientes.empty:
@@ -83,7 +82,6 @@ if not df_pendientes.empty:
         column_config={
             "N° DE TICKET": st.column_config.TextColumn("Ticket", width="small"),
             "AREA": st.column_config.TextColumn("Área", width="small"),
-            # Le damos ancho 'large' a la falla para que el texto extenso se lea mejor
             "DESCRIPCION DE FALLA": st.column_config.TextColumn("Falla", width="large"),
             "LINK_ACCION": st.column_config.LinkColumn("Acción", display_text="✏️ Asignar")
         }
@@ -100,7 +98,8 @@ df_activos = df_master[~df_master['TIPO DE ENTRADA'].isin(['Pendiente (Sin revis
 st.info("📋 **LISTADO DE PROBLEMAS ACTIVOS**")
 
 if not df_activos.empty:
-    columnas_activos = ['N° DE TICKET', 'PERSONA RESPONSABLE', 'TIPO DE ENTRADA', 'LINK_ACCION']
+    # AÑADIDA 'DESCRIPCION DE FALLA' A LA LISTA DE COLUMNAS
+    columnas_activos = ['N° DE TICKET', 'DESCRIPCION DE FALLA', 'PERSONA RESPONSABLE', 'TIPO DE ENTRADA', 'LINK_ACCION']
         
     st.dataframe(
         df_activos[columnas_activos], 
@@ -108,6 +107,7 @@ if not df_activos.empty:
         hide_index=True,
         column_config={
             "N° DE TICKET": st.column_config.TextColumn("Ticket", width="small"),
+            "DESCRIPCION DE FALLA": st.column_config.TextColumn("Falla", width="large"), # AÑADIDA LA CONFIGURACIÓN
             "PERSONA RESPONSABLE": st.column_config.TextColumn("Responsable", width="medium"),
             "TIPO DE ENTRADA": st.column_config.TextColumn("Estado", width="small"),
             "LINK_ACCION": st.column_config.LinkColumn("Acción", display_text="🔄 Editar")
@@ -123,15 +123,16 @@ df_cerrados = df_master[df_master['TIPO DE ENTRADA'].isin(estados_cierre)].copy(
 
 with st.expander("✅ VER HISTORIAL DE CERRADOS"):
     if not df_cerrados.empty:
+        # AQUÍ YA ESTABA INCLUIDA LA FALLA
         columnas_cerrados = ['N° DE TICKET', 'DESCRIPCION DE FALLA', 'PLAN DE ACCION']
         st.dataframe(
             df_cerrados[columnas_cerrados], 
             use_container_width=True, 
             hide_index=True,
             column_config={
-                "N° DE TICKET": "Ticket",
-                "DESCRIPCION DE FALLA": "Falla",
-                "PLAN DE ACCION": "Solución"
+                "N° DE TICKET": st.column_config.TextColumn("Ticket", width="small"),
+                "DESCRIPCION DE FALLA": st.column_config.TextColumn("Falla", width="large"), # Añadido el ancho para consistencia
+                "PLAN DE ACCION": st.column_config.TextColumn("Solución", width="large")
             }
         )
     else:
