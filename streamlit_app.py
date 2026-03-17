@@ -34,10 +34,16 @@ df_actualizaciones.columns = df_actualizaciones.columns.str.strip()
 df_ingresos = df_ingresos.dropna(subset=['N° DE TICKET'])
 
 # ==========================================
-# 3. PROCESAMIENTO Y CRUCE DE DATOS
+# 3. PROCESAMIENTO Y CRUCE DE DATOS (EL MOTOR)
 # ==========================================
+# ESTANDARIZAR LOS TICKETS EN INGRESOS (Convertir a texto puro sin decimales)
+df_ingresos['N° DE TICKET'] = df_ingresos['N° DE TICKET'].astype(str).str.replace('.0', '', regex=False).str.strip()
+
 if not df_actualizaciones.empty and 'N° DE TICKET' in df_actualizaciones.columns:
     df_actualizaciones = df_actualizaciones.dropna(subset=['N° DE TICKET'])
+    
+    # ESTANDARIZAR LOS TICKETS EN ACTUALIZACIONES (Convertir a texto puro sin decimales)
+    df_actualizaciones['N° DE TICKET'] = df_actualizaciones['N° DE TICKET'].astype(str).str.replace('.0', '', regex=False).str.strip()
     
     # Convertimos la fecha para ordenar correctamente
     df_actualizaciones['Marca temporal'] = pd.to_datetime(df_actualizaciones['Marca temporal'], errors='coerce')
@@ -65,7 +71,7 @@ elif 'Marca temporal' in df_master.columns:
     df_master.rename(columns={'Marca temporal': 'FECHA INGRESO'}, inplace=True)
 
 # Generamos la columna con el Link dinámico para TODAS las filas
-df_master['LINK_ACCION'] = url_base_form_actualizacion + df_master['N° DE TICKET'].astype(str)
+df_master['LINK_ACCION'] = url_base_form_actualizacion + df_master['N° DE TICKET']
 
 # ==========================================
 # 4. INTERFAZ VISUAL DEL TABLERO
