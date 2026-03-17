@@ -51,6 +51,7 @@ else:
     df_master['TIPO DE ENTRADA'] = 'Pendiente (Sin revisión)'
 
 # --- Escudo protector: Crear columnas si no existen ---
+# NOTA: Cambia 'QUIEN CARGA' por tu nombre real de columna (ej. 'LEGAJO' o 'AREA QUE REPORTA') si es necesario
 columnas_seguras = ['AREA RESPONSABLE', 'PERSONA RESPONSABLE', 'PLAN DE ACCION', 'FECHA DE REVISION', 'AREA', 'QUIEN CARGA', 'DESCRIPCION DE FALLA']
 for col in columnas_seguras:
     if col not in df_master.columns:
@@ -90,7 +91,7 @@ df_pendientes = df_master[df_master['TIPO DE ENTRADA'] == 'Pendiente (Sin revisi
 st.error("⚠️ **PENDIENTES DE ACEPTACIÓN**")
 
 if not df_pendientes.empty:
-    # ⚠️ RECUERDA: Si tu columna no se llama 'QUIEN CARGA', cámbialo aquí abajo (ej. 'LEGAJO')
+    # ⚠️ RECUERDA: Si tu columna no se llama 'QUIEN CARGA', cámbialo aquí abajo por su nombre real
     columnas_pendientes = ['FECHA INGRESO', 'AREA', 'QUIEN CARGA', 'LINK_ACCION']
     
     st.dataframe(
@@ -122,6 +123,7 @@ if not df_activos.empty:
         'TIPO DE ENTRADA', 
         'AREA RESPONSABLE', 
         'PERSONA RESPONSABLE', 
+        'DESCRIPCION DE FALLA', 
         'PLAN DE ACCION', 
         'FECHA DE REVISION', 
         'LINK_ACCION'
@@ -137,8 +139,9 @@ if not df_activos.empty:
             "TIPO DE ENTRADA": st.column_config.TextColumn("Estado", width="medium"),
             "AREA RESPONSABLE": st.column_config.TextColumn("Área Responsable", width="medium"),
             "PERSONA RESPONSABLE": st.column_config.TextColumn("Responsable", width="medium"),
+            "DESCRIPCION DE FALLA": st.column_config.TextColumn("Problema / Falla", width="large"),
             "PLAN DE ACCION": st.column_config.TextColumn("Plan de Acción", width="large"),
-            "FECHA DE REVISION": st.column_config.TextColumn("Fecha de Revisión", width="medium"), # Texto por si hay formatos raros
+            "FECHA DE REVISION": st.column_config.TextColumn("Fecha de Revisión", width="medium"),
             "LINK_ACCION": st.column_config.LinkColumn("Acción", display_text="🔄 Editar / Actualizar")
         }
     )
@@ -152,7 +155,6 @@ df_cerrados = df_master[df_master['TIPO DE ENTRADA'].isin(estados_cierre)].copy(
 
 with st.expander("✅ VER HISTORIAL DE CERRADOS"):
     if not df_cerrados.empty:
-        # Aquí puedes ajustar las columnas de los cerrados si lo deseas
         columnas_cerrados = ['N° DE TICKET', 'FECHA INGRESO', 'DESCRIPCION DE FALLA', 'AREA RESPONSABLE', 'PLAN DE ACCION']
         st.dataframe(
             df_cerrados[columnas_cerrados], 
