@@ -20,34 +20,51 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 df_ingresos = conn.read(spreadsheet=url_ingresos, ttl=300)
 df_actualizaciones = conn.read(spreadsheet=url_actualizaciones, ttl=300)
 
+# Limpieza de nombres de columnas (quita espacios invisibles)
 df_ingresos.columns = df_ingresos.columns.str.strip()
 df_actualizaciones.columns = df_actualizaciones.columns.str.strip()
-df_ingresos = df_ingresos.dropna(subset=['N° DE TICKET'])
+
+# Asegurarse de que exista la columna principal para no dar error
+if 'N° DE TICKET' in df_ingresos.columns:
+    df_ingresos = df_ingresos.dropna(subset=['N° DE TICKET'])
+    df_ingresos['N° DE TICKET'] = df_ingresos['N° DE TICKET'].astype(str).str.replace('.0', '', regex=False).str.strip()
+else:
+    st.error("🚨 Error: No se encontró la columna 'N° DE TICKET' en la hoja de ingresos.")
+    st.stop()
 
 # ==========================================
 # 3. PROCESAMIENTO Y CRUCE DE DATOS
 # ==========================================
-df_ingresos['N° DE TICKET'] = df_ingresos['N° DE TICKET'].astype(str).str.replace('.0', '', regex=False).str.strip()
-
 if not df_actualizaciones.empty and 'N° DE TICKET' in df_actualizaciones.columns:
     df_actualizaciones = df_actualizaciones.dropna(subset=['N° DE TICKET'])
     df_actualizaciones['N° DE TICKET'] = df_actualizaciones['N° DE TICKET'].astype(str).str.replace('.0', '', regex=False).str.strip()
     df_actualizaciones['Marca temporal'] = pd.to_datetime(df_actualizaciones['Marca temporal'], errors='coerce')
+    
+    # Quedarse solo con la última actualización de cada ticket
     df_ultimas_act = df_actualizaciones.sort_values('Marca temporal').drop_duplicates(subset='N° DE TICKET', keep='last')
+    
+    # Cruzar datos
     df_master = pd.merge(df_ingresos, df_ultimas_act, on='N° DE TICKET', how='left')
     df_master['TIPO DE ENTRADA'] = df_master['TIPO DE ENTRADA'].fillna('Pendiente (Sin revisión)')
 else:
     df_master = df_ingresos.copy()
     df_master['TIPO DE ENTRADA'] = 'Pendiente (Sin revisión)'
-    df_master['AREA RESPONSABLE'] = ''
-    df_master['PERSONA RESPONSABLE'] = ''
-    df_master['PLAN DE ACCION'] = ''
 
+# --- Escudo protector: Crear columnas si no existen ---
+columnas_seguras = ['AREA RESPONSABLE', 'PERSONA RESPONSABLE', 'PLAN DE ACCION', 'FECHA DE REVISION', 'AREA', 'QUIEN CARGA', 'DESCRIPCION DE FALLA']
+for col in columnas_seguras:
+    if col not in df_master.columns:
+        df_master[col] = '' # Las crea vacías para evitar KeyError
+
+# Unificar el nombre de la fecha
 if 'Marca temporal_x' in df_master.columns:
     df_master.rename(columns={'Marca temporal_x': 'FECHA INGRESO'}, inplace=True)
 elif 'Marca temporal' in df_master.columns:
     df_master.rename(columns={'Marca temporal': 'FECHA INGRESO'}, inplace=True)
+elif 'FECHA INGRESO' not in df_master.columns:
+    df_master['FECHA INGRESO'] = ''
 
+# Crear el link dinámico
 df_master['LINK_ACCION'] = url_base_form_actualizacion + df_master['N° DE TICKET']
 
 # ==========================================
@@ -56,7 +73,7 @@ df_master['LINK_ACCION'] = url_base_form_actualizacion + df_master['N° DE TICKE
 
 st.title("🏭 Tablero QRQC")
 
-# --- BOTONES PRINCIPALES REORGANIZADOS ---
+# --- BOTONES PRINCIPALES ---
 st.link_button("➕ INGRESE UN NUEVO TICKET", url_form_nuevo, use_container_width=True)
 
 st.divider()
@@ -73,16 +90,17 @@ df_pendientes = df_master[df_master['TIPO DE ENTRADA'] == 'Pendiente (Sin revisi
 st.error("⚠️ **PENDIENTES DE ACEPTACIÓN**")
 
 if not df_pendientes.empty:
-    columnas_pendientes = ['N° DE TICKET', 'AREA', 'DESCRIPCION DE FALLA', 'LINK_ACCION']
+    # ⚠️ RECUERDA: Si tu columna no se llama 'QUIEN CARGA', cámbialo aquí abajo (ej. 'LEGAJO')
+    columnas_pendientes = ['FECHA INGRESO', 'AREA', 'QUIEN CARGA', 'LINK_ACCION']
     
     st.dataframe(
         df_pendientes[columnas_pendientes], 
         hide_index=True, 
         use_container_width=True,
         column_config={
-            "N° DE TICKET": st.column_config.TextColumn("Ticket", width="small"),
+            "FECHA INGRESO": st.column_config.DatetimeColumn("Fecha", format="DD/MM/YYYY"),
             "AREA": st.column_config.TextColumn("Área", width="small"),
-            "DESCRIPCION DE FALLA": st.column_config.TextColumn("Falla", width="large"),
+            "QUIEN CARGA": st.column_config.TextColumn("Quien carga", width="medium"),
             "LINK_ACCION": st.column_config.LinkColumn("Acción", display_text="✏️ Asignar")
         }
     )
@@ -91,15 +109,23 @@ else:
 
 st.divider()
 
-# --- BLOQUE 2: ACTIVOS ---
+# --- BLOQUE 2: ACTIVOS (EN CURSO) ---
 estados_cierre = ['Cerrado', 'CERRADO', 'cerrado', 'CIERRE', 'Cierre', 'cierre']
 df_activos = df_master[~df_master['TIPO DE ENTRADA'].isin(['Pendiente (Sin revisión)'] + estados_cierre)].copy()
 
-st.info("📋 **LISTADO DE PROBLEMAS ACTIVOS**")
+st.info("📋 **LISTADO DE PROBLEMAS EN CURSO**")
 
 if not df_activos.empty:
-    # AÑADIDA 'DESCRIPCION DE FALLA' A LA LISTA DE COLUMNAS
-    columnas_activos = ['N° DE TICKET', 'DESCRIPCION DE FALLA', 'PERSONA RESPONSABLE', 'TIPO DE ENTRADA', 'LINK_ACCION']
+    columnas_activos = [
+        'N° DE TICKET', 
+        'FECHA INGRESO', 
+        'TIPO DE ENTRADA', 
+        'AREA RESPONSABLE', 
+        'PERSONA RESPONSABLE', 
+        'PLAN DE ACCION', 
+        'FECHA DE REVISION', 
+        'LINK_ACCION'
+    ]
         
     st.dataframe(
         df_activos[columnas_activos], 
@@ -107,10 +133,13 @@ if not df_activos.empty:
         hide_index=True,
         column_config={
             "N° DE TICKET": st.column_config.TextColumn("Ticket", width="small"),
-            "DESCRIPCION DE FALLA": st.column_config.TextColumn("Falla", width="large"), # AÑADIDA LA CONFIGURACIÓN
+            "FECHA INGRESO": st.column_config.DatetimeColumn("Marca temporal", format="DD/MM/YYYY"),
+            "TIPO DE ENTRADA": st.column_config.TextColumn("Estado", width="medium"),
+            "AREA RESPONSABLE": st.column_config.TextColumn("Área Responsable", width="medium"),
             "PERSONA RESPONSABLE": st.column_config.TextColumn("Responsable", width="medium"),
-            "TIPO DE ENTRADA": st.column_config.TextColumn("Estado", width="small"),
-            "LINK_ACCION": st.column_config.LinkColumn("Acción", display_text="🔄 Editar")
+            "PLAN DE ACCION": st.column_config.TextColumn("Plan de Acción", width="large"),
+            "FECHA DE REVISION": st.column_config.TextColumn("Fecha de Revisión", width="medium"), # Texto por si hay formatos raros
+            "LINK_ACCION": st.column_config.LinkColumn("Acción", display_text="🔄 Editar / Actualizar")
         }
     )
 else:
@@ -123,16 +152,18 @@ df_cerrados = df_master[df_master['TIPO DE ENTRADA'].isin(estados_cierre)].copy(
 
 with st.expander("✅ VER HISTORIAL DE CERRADOS"):
     if not df_cerrados.empty:
-        # AQUÍ YA ESTABA INCLUIDA LA FALLA
-        columnas_cerrados = ['N° DE TICKET', 'DESCRIPCION DE FALLA', 'PLAN DE ACCION']
+        # Aquí puedes ajustar las columnas de los cerrados si lo deseas
+        columnas_cerrados = ['N° DE TICKET', 'FECHA INGRESO', 'DESCRIPCION DE FALLA', 'AREA RESPONSABLE', 'PLAN DE ACCION']
         st.dataframe(
             df_cerrados[columnas_cerrados], 
             use_container_width=True, 
             hide_index=True,
             column_config={
                 "N° DE TICKET": st.column_config.TextColumn("Ticket", width="small"),
-                "DESCRIPCION DE FALLA": st.column_config.TextColumn("Falla", width="large"), # Añadido el ancho para consistencia
-                "PLAN DE ACCION": st.column_config.TextColumn("Solución", width="large")
+                "FECHA INGRESO": st.column_config.DatetimeColumn("Fecha", format="DD/MM/YYYY"),
+                "DESCRIPCION DE FALLA": st.column_config.TextColumn("Falla", width="large"),
+                "AREA RESPONSABLE": st.column_config.TextColumn("Área", width="small"),
+                "PLAN DE ACCION": st.column_config.TextColumn("Solución Final", width="large")
             }
         )
     else:
