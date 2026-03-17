@@ -147,3 +147,14 @@ with st.expander("✅ VER HISTORIAL DE PROBLEMAS CERRADOS"):
         st.dataframe(df_cerrados[columnas_cerrados], use_container_width=True, hide_index=True)
     else:
         st.write("Aún no hay problemas cerrados.")
+
+
+st.divider()
+with st.expander("🔍 MODO DETECTIVE (Solo para el Administrador)"):
+    st.write("¿Qué está leyendo el sistema en la planilla de ACTUALIZACIONES?")
+    if df_actualizaciones.empty:
+        st.warning("La planilla de actualizaciones está VACÍA. No ha entrado ninguna respuesta del formulario 2.")
+    else:
+        st.write("Nombres exactos de las columnas detectadas:", df_actualizaciones.columns.tolist())
+        st.dataframe(df_actualizaciones, use_container_width=True)
+        
