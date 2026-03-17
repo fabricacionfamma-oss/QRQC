@@ -2,87 +2,134 @@ import streamlit as st
 import pandas as pd
 from streamlit_gsheets import GSheetsConnection
 
-st.set_page_config(page_title="Gestión de Problemas QRQC", layout="wide")
+# Configuración inicial de la página
+st.set_page_config(page_title="Tablero QRQC", layout="wide")
 
-# 1. CONEXIÓN A GOOGLE SHEETS
-conn = st.connection("gsheets", type=GSheetsConnection)
-
-# REEMPLAZA ESTAS URLs CON LAS TUYAS (Las que copiaste del navegador)
+# ==========================================
+# 1. CONFIGURACIÓN DE ENLACES DEFINITIVOS
+# ==========================================
 url_ingresos = "https://docs.google.com/spreadsheets/d/1xw4aqqpf6pWDa9LQSmS3ztLiF82n-ZQ0NqY3QRVTTFg/edit"
 url_actualizaciones = "https://docs.google.com/spreadsheets/d/1kYDRlp_q0DDg88vks09s2eThas_WVFrUaPNujI7AKIw/edit"
 
-# Leer los datos
+# Link base de tu Formulario de Actualización (Ya configurado con el Entry ID del N° de Ticket)
+url_base_form_actualizacion = "https://docs.google.com/forms/d/e/1FAIpQLSfppxJI7lPOKbFQZwsDzTBYdv4hWq3QN9ImKCkAvmVCLV0wDw/viewform?entry.1541179458="
+
+# Link de tu Formulario de Ingreso Nuevo
+url_form_nuevo = "https://docs.google.com/forms/d/e/1FAIpQLSe9AHzNLjUkg3tdfbsUopdc8_YldXLk4YbGXYaeNKyWA198vQ/viewform"
+
+# ==========================================
+# 2. CONEXIÓN Y LECTURA DE DATOS
+# ==========================================
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+# Leemos los datos (se actualizan cada 5 minutos / 300 segundos)
 df_ingresos = conn.read(spreadsheet=url_ingresos, ttl=300)
 df_actualizaciones = conn.read(spreadsheet=url_actualizaciones, ttl=300)
 
-# Limpiar espacios en blanco de los nombres de las columnas (Para evitar KeyErrors)
+# Limpiamos espacios en blanco de los nombres de columnas para evitar errores
 df_ingresos.columns = df_ingresos.columns.str.strip()
 df_actualizaciones.columns = df_actualizaciones.columns.str.strip()
 
-# Eliminar filas vacías que Google Sheets a veces lee por error
+# Eliminamos filas vacías que no tengan N° de Ticket
 df_ingresos = df_ingresos.dropna(subset=['N° DE TICKET'])
 
-# 2. PROCESAMIENTO DE DATOS
-# Verificar si ya hay actualizaciones cargadas
+# ==========================================
+# 3. PROCESAMIENTO Y CRUCE DE DATOS
+# ==========================================
 if not df_actualizaciones.empty and 'N° DE TICKET' in df_actualizaciones.columns:
     df_actualizaciones = df_actualizaciones.dropna(subset=['N° DE TICKET'])
+    
+    # Convertimos la fecha para poder ordenarla correctamente
     df_actualizaciones['Marca temporal'] = pd.to_datetime(df_actualizaciones['Marca temporal'], errors='coerce')
     
-    # Quedarnos con la última actualización de cada ticket
+    # Nos quedamos SOLO con la última actualización de cada ticket
     df_ultimas_act = df_actualizaciones.sort_values('Marca temporal').drop_duplicates(subset='N° DE TICKET', keep='last')
     
-    # Unir las tablas (Merge)
+    # Unimos las tablas: Ingresos + Su última actualización
     df_master = pd.merge(df_ingresos, df_ultimas_act, on='N° DE TICKET', how='left')
     
-    # Rellenar los vacíos de los tickets nuevos
+    # Si un ticket no tiene actualización, le ponemos estado Pendiente
     df_master['TIPO DE ENTRADA'] = df_master['TIPO DE ENTRADA'].fillna('Pendiente (Sin revisión)')
 else:
-    # Si la planilla de actualizaciones está vacía (nadie actualizó nada aún)
+    # Si nadie actualizó nada aún, todos son nuevos/pendientes
     df_master = df_ingresos.copy()
     df_master['TIPO DE ENTRADA'] = 'Pendiente (Sin revisión)'
     df_master['AREA RESPONSABLE'] = ''
     df_master['PERSONA RESPONSABLE'] = ''
     df_master['PLAN DE ACCION'] = ''
 
-# Renombrar la Marca Temporal del Ingreso para que se vea más lindo en la tabla
+# Mejoramos el nombre de la fecha de ingreso para la visualización
 if 'Marca temporal_x' in df_master.columns:
     df_master.rename(columns={'Marca temporal_x': 'FECHA INGRESO'}, inplace=True)
 elif 'Marca temporal' in df_master.columns:
     df_master.rename(columns={'Marca temporal': 'FECHA INGRESO'}, inplace=True)
 
-# 3. INTERFAZ VISUAL
+# Generamos la columna con el Link dinámico para TODAS las filas
+df_master['LINK_ACCION'] = url_base_form_actualizacion + df_master['N° DE TICKET'].astype(str)
+
+# ==========================================
+# 4. INTERFAZ VISUAL DEL TABLERO
+# ==========================================
 st.title("🏭 Tablero QRQC / Listado Único de Problemas")
 
 # --- BLOQUE 1: PENDIENTES ---
-df_pendientes = df_master[df_master['TIPO DE ENTRADA'] == 'Pendiente (Sin revisión)']
+df_pendientes = df_master[df_master['TIPO DE ENTRADA'] == 'Pendiente (Sin revisión)'].copy()
 st.error("### ⚠️ PENDIENTES DE ACEPTACION")
+
 if not df_pendientes.empty:
-    columnas_pendientes = ['N° DE TICKET', 'FECHA INGRESO', 'AREA', 'QUIEN AREA INGRESA EL PROBLEMA?', 'DESCRIPCION DE FALLA']
-    st.dataframe(df_pendientes[columnas_pendientes], hide_index=True, use_container_width=True)
+    columnas_pendientes = ['N° DE TICKET', 'FECHA INGRESO', 'AREA', 'QUIEN AREA INGRESA EL PROBLEMA?', 'DESCRIPCION DE FALLA', 'LINK_ACCION']
+    
+    st.dataframe(
+        df_pendientes[columnas_pendientes], 
+        hide_index=True, 
+        use_container_width=True,
+        column_config={
+            "LINK_ACCION": st.column_config.LinkColumn("Acción", display_text="✏️ Aceptar / Asignar")
+        }
+    )
 else:
     st.success("¡Excelente! No hay tickets pendientes de revisión.")
 
 st.divider()
 
 # --- BLOQUE 2: ACTIVOS ---
-# Filtramos para que no muestre los pendientes ni los que digan "Cerrado"
-df_activos = df_master[~df_master['TIPO DE ENTRADA'].isin(['Pendiente (Sin revisión)', 'Cerrado', 'CERRADO'])]
+# Filtramos los que NO son Pendientes y NO están Cerrados
+df_activos = df_master[~df_master['TIPO DE ENTRADA'].isin(['Pendiente (Sin revisión)', 'Cerrado', 'CERRADO', 'cerrado'])].copy()
 st.info("### 📋 LISTADO DE PROBLEMAS ACTIVOS")
 
 if not df_activos.empty:
-    columnas_activos = ['N° DE TICKET', 'DESCRIPCION DE FALLA', 'AREA RESPONSABLE', 'PERSONA RESPONSABLE', 'PLAN DE ACCION', 'TIPO DE ENTRADA']
-    # Solo intentamos mostrar 'FECHA DE REVISION' si ya existe en la tabla combinada
+    columnas_activos = ['N° DE TICKET', 'DESCRIPCION DE FALLA', 'AREA RESPONSABLE', 'PERSONA RESPONSABLE', 'PLAN DE ACCION', 'TIPO DE ENTRADA', 'LINK_ACCION']
+    
     if 'FECHA DE REVISION' in df_activos.columns:
         columnas_activos.insert(5, 'FECHA DE REVISION')
         
-    st.dataframe(df_activos[columnas_activos], use_container_width=True, hide_index=True)
+    st.dataframe(
+        df_activos[columnas_activos], 
+        use_container_width=True, 
+        hide_index=True,
+        column_config={
+            "LINK_ACCION": st.column_config.LinkColumn("Acción", display_text="🔄 Actualizar / Cerrar")
+        }
+    )
 else:
     st.write("No hay problemas en curso en este momento.")
 
 st.divider()
 
-# --- BLOQUE 3: BOTONES ---
+# --- BLOQUE 3: BOTONES GENERALES ---
+st.markdown("### 📝 CARGA MANUAL")
 col1, col2 = st.columns(2)
-# RECUERDA PONER AQUÍ LOS LINKS DE TUS GOOGLE FORMS
-col1.link_button("➕ INGRESE UN NUEVO TICKET", "https://forms.google.com/...", use_container_width=True)
-col2.link_button("🔄 ACTUALIZAR UN TICKET", "https://forms.google.com/...", use_container_width=True)
+col1.link_button("➕ INGRESE UN NUEVO TICKET (En Blanco)", url_form_nuevo, use_container_width=True)
+col2.link_button("🔄 ACTUALIZAR UN TICKET (Manual)", url_base_form_actualizacion.replace("?entry.1541179458=", ""), use_container_width=True)
+
+st.divider()
+
+# --- BLOQUE 4: HISTORIAL DE CERRADOS ---
+df_cerrados = df_master[df_master['TIPO DE ENTRADA'].isin(['Cerrado', 'CERRADO', 'cerrado'])].copy()
+
+with st.expander("✅ VER HISTORIAL DE PROBLEMAS CERRADOS"):
+    if not df_cerrados.empty:
+        columnas_cerrados = ['N° DE TICKET', 'FECHA INGRESO', 'DESCRIPCION DE FALLA', 'AREA RESPONSABLE', 'PERSONA RESPONSABLE', 'PLAN DE ACCION']
+        st.dataframe(df_cerrados[columnas_cerrados], use_container_width=True, hide_index=True)
+    else:
+        st.write("Aún no hay problemas cerrados.")
