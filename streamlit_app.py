@@ -55,6 +55,9 @@ if 'Marca temporal_x' in df_master.columns:
 elif 'Marca temporal' in df_master.columns:
     df_master.rename(columns={'Marca temporal': 'FECHA INGRESO'}, inplace=True)
 
+# Asegurarnos de que FECHA INGRESO sea tipo fecha para poder ordenarlo correctamente
+df_master['FECHA INGRESO'] = pd.to_datetime(df_master['FECHA INGRESO'], errors='coerce')
+
 df_master['LINK_ACCION'] = url_base_form_actualizacion + df_master['N° DE TICKET']
 
 # ==========================================
@@ -74,7 +77,9 @@ if st.button("🔄 Actualizar Datos Ahora", type="primary", use_container_width=
 st.divider()
 
 # --- BLOQUE 1: PENDIENTES ---
+# Copiamos y ordenamos para que los más nuevos salgan arriba
 df_pendientes = df_master[df_master['TIPO DE ENTRADA'] == 'Pendiente (Sin revisión)'].copy()
+df_pendientes = df_pendientes.sort_values(by='FECHA INGRESO', ascending=False)
 
 st.error("⚠️ **PENDIENTES DE ACEPTACIÓN**")
 
@@ -85,7 +90,7 @@ if not df_pendientes.empty:
         df_pendientes[columnas_pendientes], 
         hide_index=True, 
         use_container_width=True,
-        height=400, # <-- ALTURA FIJA PARA SCROLL
+        height=210, # <-- ALTURA FIJA PARA ~5 FILAS
         column_config={
             "FECHA INGRESO": st.column_config.DatetimeColumn("Fecha", format="DD/MM/YYYY"),
             "AREA": st.column_config.TextColumn("Área", width="small"),
@@ -102,6 +107,7 @@ st.divider()
 # --- BLOQUE 2: ACTIVOS (EN CURSO) ---
 estados_cierre = ['Cerrado', 'CERRADO', 'cerrado', 'CIERRE', 'Cierre', 'cierre']
 df_activos = df_master[~df_master['TIPO DE ENTRADA'].isin(['Pendiente (Sin revisión)'] + estados_cierre)].copy()
+df_activos = df_activos.sort_values(by='FECHA INGRESO', ascending=False)
 
 st.info("📋 **LISTADO DE PROBLEMAS EN CURSO**")
 
@@ -120,7 +126,7 @@ if not df_activos.empty:
         df_activos[columnas_activos], 
         use_container_width=True, 
         hide_index=True,
-        height=500, # <-- ALTURA FIJA PARA SCROLL (aprox 12-15 filas)
+        height=210, # <-- ALTURA FIJA PARA ~5 FILAS
         column_config={
             "N° DE TICKET": st.column_config.TextColumn("Ticket", width="small"),
             "FECHA INGRESO": st.column_config.DatetimeColumn("Marca temporal", format="DD/MM/YYYY"),
@@ -138,6 +144,7 @@ st.divider()
 
 # --- BLOQUE 3: HISTORIAL DE CERRADOS ---
 df_cerrados = df_master[df_master['TIPO DE ENTRADA'].isin(estados_cierre)].copy()
+df_cerrados = df_cerrados.sort_values(by='FECHA INGRESO', ascending=False)
 
 with st.expander("✅ VER HISTORIAL DE CERRADOS"):
     if not df_cerrados.empty:
@@ -146,7 +153,7 @@ with st.expander("✅ VER HISTORIAL DE CERRADOS"):
             df_cerrados[columnas_cerrados], 
             use_container_width=True, 
             hide_index=True,
-            height=500, # <-- ALTURA FIJA PARA SCROLL
+            height=210, # <-- ALTURA FIJA PARA ~5 FILAS
             column_config={
                 "N° DE TICKET": st.column_config.TextColumn("Ticket", width="small"),
                 "FECHA INGRESO": st.column_config.DatetimeColumn("Fecha", format="DD/MM/YYYY"),
