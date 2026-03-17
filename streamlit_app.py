@@ -9,7 +9,6 @@ st.set_page_config(page_title="Tablero QRQC", layout="wide")
 # 1. CONFIGURACIÓN DE ENLACES DEFINITIVOS
 # ==========================================
 url_ingresos = "https://docs.google.com/spreadsheets/d/1xw4aqqpf6pWDa9LQSmS3ztLiF82n-ZQ0NqY3QRVTTFg/edit"
-# ¡NUEVA URL DE ACTUALIZACIONES CONFIGURADA!
 url_actualizaciones = "https://docs.google.com/spreadsheets/d/13HGJpk8SJo1nN2asMVMuS_EXhqYq4vtcMslvUEMdQw0/edit"
 
 # Link base de tu Formulario de Actualización (con el Entry ID precargado)
@@ -85,7 +84,7 @@ with col_titulo:
     st.title("🏭 Tablero QRQC / Listado Único de Problemas")
 
 with col_boton:
-    st.write("") # Un pequeño espacio en blanco para alinear el botón verticalmente
+    st.write("") # Espacio para alinear el botón verticalmente
     if st.button("🔄 Actualizar Datos Ahora", type="primary", use_container_width=True):
         st.cache_data.clear() # Borra la memoria caché de Streamlit
         st.rerun() # Recarga la página instantáneamente
@@ -111,7 +110,10 @@ else:
 st.divider()
 
 # --- BLOQUE 2: ACTIVOS ---
-df_activos = df_master[~df_master['TIPO DE ENTRADA'].isin(['Pendiente (Sin revisión)', 'Cerrado', 'CERRADO', 'cerrado'])].copy()
+# AHORA FILTRA EXPRESAMENTE LA PALABRA "CIERRE"
+estados_cierre = ['Cerrado', 'CERRADO', 'cerrado', 'CIERRE', 'Cierre', 'cierre']
+df_activos = df_master[~df_master['TIPO DE ENTRADA'].isin(['Pendiente (Sin revisión)'] + estados_cierre)].copy()
+
 st.info("### 📋 LISTADO DE PROBLEMAS ACTIVOS")
 
 if not df_activos.empty:
@@ -140,7 +142,8 @@ st.link_button("➕ INGRESE UN NUEVO TICKET", url_form_nuevo, use_container_widt
 st.divider()
 
 # --- BLOQUE 4: HISTORIAL DE CERRADOS ---
-df_cerrados = df_master[df_master['TIPO DE ENTRADA'].isin(['Cerrado', 'CERRADO', 'cerrado'])].copy()
+# AHORA BUSCA EXPRESAMENTE LA PALABRA "CIERRE" PARA MOSTRARLOS AQUÍ
+df_cerrados = df_master[df_master['TIPO DE ENTRADA'].isin(estados_cierre)].copy()
 
 with st.expander("✅ VER HISTORIAL DE PROBLEMAS CERRADOS"):
     if not df_cerrados.empty:
