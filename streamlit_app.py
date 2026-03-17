@@ -79,13 +79,13 @@ df_pendientes = df_master[df_master['TIPO DE ENTRADA'] == 'Pendiente (Sin revisi
 st.error("⚠️ **PENDIENTES DE ACEPTACIÓN**")
 
 if not df_pendientes.empty:
-    # Agregamos 'DESCRIPCION DE FALLA' a la lista
     columnas_pendientes = ['FECHA INGRESO', 'AREA', 'DESCRIPCION DE FALLA', 'QUIEN CARGA', 'LINK_ACCION']
     
     st.dataframe(
         df_pendientes[columnas_pendientes], 
         hide_index=True, 
         use_container_width=True,
+        height=400, # <-- ALTURA FIJA PARA SCROLL
         column_config={
             "FECHA INGRESO": st.column_config.DatetimeColumn("Fecha", format="DD/MM/YYYY"),
             "AREA": st.column_config.TextColumn("Área", width="small"),
@@ -120,6 +120,7 @@ if not df_activos.empty:
         df_activos[columnas_activos], 
         use_container_width=True, 
         hide_index=True,
+        height=500, # <-- ALTURA FIJA PARA SCROLL (aprox 12-15 filas)
         column_config={
             "N° DE TICKET": st.column_config.TextColumn("Ticket", width="small"),
             "FECHA INGRESO": st.column_config.DatetimeColumn("Marca temporal", format="DD/MM/YYYY"),
@@ -145,6 +146,7 @@ with st.expander("✅ VER HISTORIAL DE CERRADOS"):
             df_cerrados[columnas_cerrados], 
             use_container_width=True, 
             hide_index=True,
+            height=500, # <-- ALTURA FIJA PARA SCROLL
             column_config={
                 "N° DE TICKET": st.column_config.TextColumn("Ticket", width="small"),
                 "FECHA INGRESO": st.column_config.DatetimeColumn("Fecha", format="DD/MM/YYYY"),
