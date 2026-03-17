@@ -11,7 +11,7 @@ st.set_page_config(page_title="Tablero QRQC", layout="wide")
 url_ingresos = "https://docs.google.com/spreadsheets/d/1xw4aqqpf6pWDa9LQSmS3ztLiF82n-ZQ0NqY3QRVTTFg/edit"
 url_actualizaciones = "https://docs.google.com/spreadsheets/d/1kYDRlp_q0DDg88vks09s2eThas_WVFrUaPNujI7AKIw/edit"
 
-# Link base de tu Formulario de Actualización (Ya configurado con el Entry ID del N° de Ticket)
+# Link base de tu Formulario de Actualización (con el Entry ID precargado)
 url_base_form_actualizacion = "https://docs.google.com/forms/d/e/1FAIpQLSfppxJI7lPOKbFQZwsDzTBYdv4hWq3QN9ImKCkAvmVCLV0wDw/viewform?entry.1541179458="
 
 # Link de tu Formulario de Ingreso Nuevo
@@ -22,15 +22,15 @@ url_form_nuevo = "https://docs.google.com/forms/d/e/1FAIpQLSe9AHzNLjUkg3tdfbsUop
 # ==========================================
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# Leemos los datos (se actualizan cada 5 minutos / 300 segundos)
+# Leemos los datos (se actualizan solos cada 300 segundos)
 df_ingresos = conn.read(spreadsheet=url_ingresos, ttl=300)
 df_actualizaciones = conn.read(spreadsheet=url_actualizaciones, ttl=300)
 
-# Limpiamos espacios en blanco de los nombres de columnas para evitar errores
+# Limpiamos espacios en blanco de los nombres de columnas
 df_ingresos.columns = df_ingresos.columns.str.strip()
 df_actualizaciones.columns = df_actualizaciones.columns.str.strip()
 
-# Eliminamos filas vacías que no tengan N° de Ticket
+# Eliminamos filas vacías que no tengan N° de Ticket en ingresos
 df_ingresos = df_ingresos.dropna(subset=['N° DE TICKET'])
 
 # ==========================================
@@ -39,7 +39,7 @@ df_ingresos = df_ingresos.dropna(subset=['N° DE TICKET'])
 if not df_actualizaciones.empty and 'N° DE TICKET' in df_actualizaciones.columns:
     df_actualizaciones = df_actualizaciones.dropna(subset=['N° DE TICKET'])
     
-    # Convertimos la fecha para poder ordenarla correctamente
+    # Convertimos la fecha para ordenar correctamente
     df_actualizaciones['Marca temporal'] = pd.to_datetime(df_actualizaciones['Marca temporal'], errors='coerce')
     
     # Nos quedamos SOLO con la última actualización de cada ticket
@@ -58,7 +58,7 @@ else:
     df_master['PERSONA RESPONSABLE'] = ''
     df_master['PLAN DE ACCION'] = ''
 
-# Mejoramos el nombre de la fecha de ingreso para la visualización
+# Mejoramos el nombre de la fecha de ingreso
 if 'Marca temporal_x' in df_master.columns:
     df_master.rename(columns={'Marca temporal_x': 'FECHA INGRESO'}, inplace=True)
 elif 'Marca temporal' in df_master.columns:
@@ -70,7 +70,18 @@ df_master['LINK_ACCION'] = url_base_form_actualizacion + df_master['N° DE TICKE
 # ==========================================
 # 4. INTERFAZ VISUAL DEL TABLERO
 # ==========================================
-st.title("🏭 Tablero QRQC / Listado Único de Problemas")
+
+# Dividimos la parte superior en dos columnas: una para el título y otra para el botón
+col_titulo, col_boton = st.columns([3, 1])
+
+with col_titulo:
+    st.title("🏭 Tablero QRQC / Listado Único de Problemas")
+
+with col_boton:
+    st.write("") # Un pequeño espacio en blanco para alinear el botón verticalmente
+    if st.button("🔄 Actualizar Datos Ahora", type="primary", use_container_width=True):
+        st.cache_data.clear() # Borra la memoria caché de Streamlit
+        st.rerun() # Recarga la página instantáneamente
 
 # --- BLOQUE 1: PENDIENTES ---
 df_pendientes = df_master[df_master['TIPO DE ENTRADA'] == 'Pendiente (Sin revisión)'].copy()
@@ -93,7 +104,6 @@ else:
 st.divider()
 
 # --- BLOQUE 2: ACTIVOS ---
-# Filtramos los que NO son Pendientes y NO están Cerrados
 df_activos = df_master[~df_master['TIPO DE ENTRADA'].isin(['Pendiente (Sin revisión)', 'Cerrado', 'CERRADO', 'cerrado'])].copy()
 st.info("### 📋 LISTADO DE PROBLEMAS ACTIVOS")
 
@@ -116,11 +126,9 @@ else:
 
 st.divider()
 
-# --- BLOQUE 3: BOTONES GENERALES ---
-st.markdown("### 📝 CARGA MANUAL")
-col1, col2 = st.columns(2)
-col1.link_button("➕ INGRESE UN NUEVO TICKET (En Blanco)", url_form_nuevo, use_container_width=True)
-col2.link_button("🔄 ACTUALIZAR UN TICKET (Manual)", url_base_form_actualizacion.replace("?entry.1541179458=", ""), use_container_width=True)
+# --- BLOQUE 3: BOTÓN DE NUEVO TICKET ---
+st.markdown("### 📝 CARGA DE NUEVOS PROBLEMAS")
+st.link_button("➕ INGRESE UN NUEVO TICKET", url_form_nuevo, use_container_width=True)
 
 st.divider()
 
